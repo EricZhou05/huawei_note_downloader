@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# IDEs
+.idea/
+.vscode/
+
+# Project specific data/output
+华为备忘录导出.json
+post.txt
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
