@@ -2,7 +2,7 @@
 
 import requests,json,html
 from lxml import etree
-import datetime,os,time
+import datetime,os,time,re,random
 
 list_url = "https://cloud.huawei.com/notepad/simplenote/query"
 content_url = "https://cloud.huawei.com/notepad/note/query"
@@ -16,18 +16,43 @@ else:
     print("错误: 找不到 config.json 配置文件。请复制 config.example.json 为 config.json 并填写配置。")
     exit(1)
 
-payload = json.dumps({
-  "traceId": ""
-})
-header= {
-  'Cookie': config.get('cookie', ''),
-  'Content-Type': 'application/json'
+cookie_str = config.get('cookie', '')
+
+def get_cookie_value(key):
+    match = re.search(f"{key}=([^;]+)", cookie_str)
+    return match.group(1) if match else ""
+
+user_id = get_cookie_value('userId')
+csrf_token = get_cookie_value('CSRFToken')
+
+def gen_trace_id():
+    return f"03131_02_{int(time.time())}_{random.randint(10000000, 99999999)}"
+
+header = {
+    'Cookie': cookie_str,
+    'Content-Type': 'application/json;charset=UTF-8',
+    'CSRFToken': csrf_token,
+    'userId': user_id,
+    'x-hw-device-id': '91ee2ce0f294477f9d080af4abca066bf06b808d1df67eaa4e0bafaa2c55a0c8', # 使用抓包中的固定 ID
+    'x-hw-device-category': 'Web',
+    'x-hw-os-brand': 'Web',
+    'x-hw-client-mode': 'frontend',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0',
+    'Accept': 'application/json, text/plain, */*',
+    'Origin': 'https://cloud.huawei.com',
+    'Referer': 'https://cloud.huawei.com/home'
 }
+
+payload = json.dumps({
+  "traceId": gen_trace_id()
+})
 
 # 解析所有笔记目录 JSON 数据
 def getAllNote():
     try:
-        response = requests.request("POST", list_url, headers=header, data=payload)
+        # 每次获取列表使用新鲜的 traceId
+        current_payload = json.dumps({"traceId": gen_trace_id()})
+        response = requests.request("POST", list_url, headers=header, data=current_payload)
         result = json.loads(response.text)
         rsp_info = result.get('rspInfo')
         if not rsp_info:
@@ -84,13 +109,13 @@ if __name__ == '__main__':
             
         print(f"正在处理笔记: {guid}")
         
-        # 请求笔记内容
+        # 请求笔记内容 - 按照抓包数据修正 Payload
         contentPayload = json.dumps({
-            "ctagNoteInfo": "123",
-            "ctagNoteTag": "123",
+            "ctagNoteInfo": "",
+            "startCursor": "102915",
             "guid": guid,
-            "startCursor":"123",
-            "traceId": "123"
+            "kind": "newnote",
+            "traceId": gen_trace_id()
         })
 
         try:
