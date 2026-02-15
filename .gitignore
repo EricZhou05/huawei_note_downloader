@@ -19,6 +19,7 @@ ENV/
 # Project specific data/output
 华为备忘录导出.json
 post.txt
+config.json
 
 # Logs
 *.log

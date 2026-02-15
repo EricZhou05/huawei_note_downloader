@@ -6,11 +6,21 @@ import datetime,os
 
 list_url = "https://cloud.huawei.com/notepad/simplenote/query"
 content_url = "https://cloud.huawei.com/notepad/note/query"
+
+# 加载配置文件
+config_path = os.path.dirname(os.path.abspath(__file__)) + "/config.json"
+if os.path.exists(config_path):
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+else:
+    print("错误: 找不到 config.json 配置文件。请复制 config.example.json 为 config.json 并填写配置。")
+    exit(1)
+
 payload = json.dumps({
   "traceId": ""
 })
 header= {
-  'Cookie': '填写你的cookie',
+  'Cookie': config.get('cookie', ''),
   'Content-Type': 'application/json'
 }
 
@@ -23,10 +33,11 @@ def getAllNote():
 
 
 if __name__ == '__main__':
-    # 设置导出数量限制
+    # 获取导出数量限制
+    # 设置导出数量限制解释
     # None: 导出全部
     # 整数 (例如 10): 导出前 10 条
-    EXPORT_LIMIT = None 
+    EXPORT_LIMIT = config.get('export_limit')
 
     result_json = getAllNote()
 
