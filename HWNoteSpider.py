@@ -23,17 +23,27 @@ def getAllNote():
 
 
 if __name__ == '__main__':
-    dataFile = os.path.dirname(os.path.abspath(__file__)) + "/华为备忘录导出.txt"
-    f = open(dataFile,"w+",encoding="utf8")
+    # 设置导出数量限制
+    # None: 导出全部
+    # 整数 (例如 10): 导出前 10 条
+    EXPORT_LIMIT = None 
+
     result_json = getAllNote()
 
     parsed_data = []
-    for j in result_json:
-        data = json.loads(j.get('data'))
-        parsed_data.append(data)
+    if result_json:
+        for j in result_json:
+            data = json.loads(j.get('data'))
+            parsed_data.append(data)
 
-    # 按创建时间升序排序
-    parsed_data.sort(key=lambda x: x.get('created', 0))
+    # 按修改时间降序排序
+    parsed_data.sort(key=lambda x: x.get('modified', 0), reverse=True)
+
+    # 应用数量限制
+    if EXPORT_LIMIT is not None:
+        parsed_data = parsed_data[:EXPORT_LIMIT]
+
+    all_notes = []
 
     for data in parsed_data:
         created_timestamp = data.get('created')
@@ -42,15 +52,6 @@ if __name__ == '__main__':
         # 转换Unix时间戳
         created_time = datetime.datetime.fromtimestamp(created_timestamp/1000).strftime('%Y-%m-%d %H:%M:%S')
         modified_time = datetime.datetime.fromtimestamp(modified_timestamp/1000).strftime('%Y-%m-%d %H:%M:%S')
-
-        f.writelines('【创建时间】：' + created_time + '\n')
-        f.writelines('【修改时间】：' + modified_time + '\n')
-        f.writelines('【标题】：\n')
-        f.writelines(data.get('title')+'\n')
-        f.writelines('---------------------------------------------' + '\n')
-        f.writelines('----------------标题内容分割线-----------------' + '\n')
-        f.writelines('---------------------------------------------' + '\n\n')
-        f.writelines('【内容】：\n')
 
         guid = data.get('guid')
         print(guid)
@@ -74,22 +75,22 @@ if __name__ == '__main__':
         imgList = json.loads(t).get('fileList')
         if imgList != None and len(imgList) > 0:
             imgpos = 0
-            while content_string.find('图片')!=-1:
-                content_string.replace('图片',imgList[imgpos].get('name'),1)
+            while content_string.find('图片')!=-1 and imgpos < len(imgList):
+                content_string = content_string.replace('图片',imgList[imgpos].get('name'),1)
                 imgpos+=1
 
         t = html.unescape(content_string)
         html1=etree.HTML(t)
         result = html1.xpath('string(.)')
-        # result=etree.tostring(html1,encoding='utf-8')
-        # result = result.decode('utf-8')
-        # content_string = content_string.replace('<note><element type="Text">','')
-        # content_string = content_string.replace('</element></note>','')
-        # content_string = content_string.replace('<hw_font size ="1.0">','')
-        # content_string = content_string.replace('</hw_font>','')
-        # content_string = content_string.replace('<br>','')
-        f.writelines(result + '\n\n\n')
-        f.writelines('---------------------------------------------------------------------' + '\n')
-        f.writelines('---------------备忘录分割线-----------------备忘录分割线-----------------' + '\n')
-        f.writelines('---------------------------------------------------------------------' + '\n\n\n')
-    f.close()
+        
+        note_entry = {
+            "title": data.get('title'),
+            "created_time": created_time,
+            "modified_time": modified_time,
+            "content": result
+        }
+        all_notes.append(note_entry)
+
+    json_file = os.path.dirname(os.path.abspath(__file__)) + "/华为备忘录导出.json"
+    with open(json_file, "w", encoding="utf8") as f:
+        json.dump(all_notes, f, ensure_ascii=False, indent=4)
