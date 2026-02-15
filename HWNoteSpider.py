@@ -67,7 +67,7 @@ def getAllNote():
 
 if __name__ == '__main__':
     # 获取导出数量限制
-    # None: 导出全部
+    # null: 导出全部
     # 整数 (例如 10): 导出前 10 条
     EXPORT_LIMIT = config.get('export_limit')
 
@@ -178,7 +178,7 @@ if __name__ == '__main__':
             all_notes.append(note_entry)
             
             # 避免请求过快
-            time.sleep(0.5)
+            time.sleep(random.uniform(0.2, 0.5))
             
         except Exception as e:
             print(f"处理笔记 {guid} 时发生异常: {e}")
