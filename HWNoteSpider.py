@@ -79,6 +79,8 @@ if __name__ == '__main__':
             data_str = j.get('data')
             if data_str:
                 data = json.loads(data_str)
+                # 保存列表中的 kind 属性
+                data['kind'] = j.get('kind', 'newnote')
                 parsed_data.append(data)
 
     # 按修改时间降序排序
@@ -109,30 +111,42 @@ if __name__ == '__main__':
             
         print(f"正在处理笔记: {guid}")
         
-        # 请求笔记内容 - 按照抓包数据修正 Payload
-        contentPayload = json.dumps({
-            "ctagNoteInfo": "",
-            "startCursor": "102915",
-            "guid": guid,
-            "kind": "newnote",
-            "traceId": gen_trace_id()
-        })
+        # 尝试两种 kind 类型
+        kinds_to_try = [data.get('kind'), 'newnote', 'note']
+        # 去重并保持顺序
+        kinds_to_try = list(dict.fromkeys(kinds_to_try))
+        
+        content_json = None
+        for current_kind in kinds_to_try:
+            contentPayload = json.dumps({
+                "ctagNoteInfo": "",
+                "startCursor": "102915",
+                "guid": guid,
+                "kind": current_kind,
+                "traceId": gen_trace_id()
+            })
+
+            try:
+                contentRes = requests.request("POST", content_url, headers=header, data=contentPayload)
+                contentData = json.loads(contentRes.text)
+                
+                if contentData.get('rspInfo'):
+                    content_json_str = contentData['rspInfo'].get('data')
+                    if content_json_str:
+                        content_json = json.loads(content_json_str)
+                        break # 成功获取，跳出重试循环
+                
+                # 如果是资源未找到，尝试下一种 kind
+                if "Resource not found" in contentRes.text:
+                    continue
+            except Exception as e:
+                continue
+
+        if not content_json:
+            print(f"获取笔记内容失败 (GUID: {guid})")
+            continue
 
         try:
-            contentRes = requests.request("POST", content_url, headers=header, data=contentPayload)
-            contentData = json.loads(contentRes.text)
-            
-            rsp_info = contentData.get('rspInfo')
-            if not rsp_info:
-                print(f"获取笔记内容失败 (GUID: {guid}): {contentRes.text}")
-                continue
-                
-            t = rsp_info.get('data')
-            if not t:
-                print(f"笔记数据为空 (GUID: {guid})")
-                continue
-                
-            content_json = json.loads(t)
             content_body = content_json.get('content')
             if not content_body:
                 print(f"笔记正文为空 (GUID: {guid})")
