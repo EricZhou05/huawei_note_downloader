@@ -23,4 +23,3 @@
     7. **Tooling**: Always split multiple shell commands into individual calls; Execute commands individually; strictly prohibit shell chaining (`&&`, `;`, `|`).
     8. **Env Execution**: Use `backend\.venv\Scripts\python.exe` strictly; avoid global `python`.
     9. Prioritize local map processing; minimize external API calls.
-    10. **Documentation Management**: Store all newly created Markdown documents in `.github/docs`. Use a date-based directory structure: `YYYY/MM_DD/filename.md`. Ensure strict zero-padding for months and days (e.g., `2024/01_05/update.md`).

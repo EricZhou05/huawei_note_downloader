@@ -91,6 +91,7 @@ if __name__ == '__main__':
         parsed_data = parsed_data[:EXPORT_LIMIT]
 
     all_notes = []
+    failure_details = []
 
     for data in parsed_data:
         created_timestamp = data.get('created', 0)
@@ -144,12 +145,14 @@ if __name__ == '__main__':
 
         if not content_json:
             print(f"获取笔记内容失败 (GUID: {guid})")
+            failure_details.append({"guid": guid, "title": data.get('title', '无标题'), "reason": "获取笔记内容失败"})
             continue
 
         try:
             content_body = content_json.get('content')
             if not content_body:
                 print(f"笔记正文为空 (GUID: {guid})")
+                failure_details.append({"guid": guid, "title": data.get('title', '无标题'), "reason": "笔记正文为空"})
                 continue
                 
             content_string = content_body.get('html_content', '')
@@ -179,10 +182,29 @@ if __name__ == '__main__':
             
         except Exception as e:
             print(f"处理笔记 {guid} 时发生异常: {e}")
+            failure_details.append({"guid": guid, "title": data.get('title', '无标题'), "reason": f"处理异常: {str(e)}"})
             continue
 
     json_file = os.path.dirname(os.path.abspath(__file__)) + "/华为备忘录导出.json"
     with open(json_file, "w", encoding="utf8") as f:
         json.dump(all_notes, f, ensure_ascii=False, indent=4)
+    
+    # 生成导出总结 md 文件
+    summary_file = os.path.dirname(os.path.abspath(__file__)) + "/导出总结.md"
+    with open(summary_file, "w", encoding="utf8") as f:
+        f.write("# 华为备忘录导出总结\n\n")
+        f.write(f"- **导出时间**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"- **总计尝试**: {len(parsed_data)}\n")
+        f.write(f"- **成功数量**: {len(all_notes)}\n")
+        f.write(f"- **失败数量**: {len(failure_details)}\n\n")
+        
+        if failure_details:
+            f.write("## 失败详情\n\n")
+            f.write("| 序号 | 标题 | GUID | 失败原因 |\n")
+            f.write("| :--- | :--- | :--- | :--- |\n")
+            for i, fail in enumerate(failure_details, 1):
+                f.write(f"| {i} | {fail['title']} | {fail['guid']} | {fail['reason']} |\n")
+    
     print(f"导出完成，共计 {len(all_notes)} 条笔记。")
+    print(f"导出总结已生成: {summary_file}")
 
