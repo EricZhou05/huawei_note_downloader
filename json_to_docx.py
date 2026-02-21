@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+import re
 from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
 def set_font(run, font_name, size, bold=False, italic=False):
     """设置字体、字号、加粗、斜体以及中文字体支持"""
@@ -14,6 +16,19 @@ def set_font(run, font_name, size, bold=False, italic=False):
     run.bold = bold
     run.italic = italic
     run.font.color.rgb = RGBColor(0, 0, 0)
+
+def add_horizontal_line(paragraph):
+    """为段落添加一条粗实线下划线作为分割线"""
+    p = paragraph._element
+    pPr = p.get_or_add_pPr()
+    pBdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single')
+    bottom.set(qn('w:sz'), '12')  # 线条粗细
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), '000000')
+    pBdr.append(bottom)
+    pPr.append(pBdr)
 
 def json_to_docx(json_path, output_path):
     # 检查输入文件是否存在
@@ -29,14 +44,26 @@ def json_to_docx(json_path, output_path):
     doc = Document()
 
     for index, note in enumerate(notes):
-        # 1. 添加标题 - 使用微软雅黑，16号加粗
-        title = note.get('title') or '无标题'
+        content_raw = note.get('content', '')
+        title_raw = note.get('title') or '无标题'
+        
+        # 1. 标题处理
+        # 禁止换行：替换换行符为空格
+        title = title_raw.replace('\n', ' ').replace('\r', ' ').strip()
+        
+        # 标题长度优化：校验 content 前 10 位
+        # 先对 content 做简单清理以便比较
+        clean_content = content_raw.strip()
+        if len(title) >= 10 and len(clean_content) >= 10:
+            if title[:10] == clean_content[:10]:
+                title = title[:8]
+        
         title_para = doc.add_paragraph()
         title_run = title_para.add_run(title)
         set_font(title_run, '微软雅黑', 16, bold=True)
         title_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
-        # 2. 添加时间信息 - 使用微软雅黑，9号
+        # 2. 添加时间信息
         created_time = note.get('created_time', '未知')
         modified_time = note.get('modified_time', '未知')
         time_info = f"创建时间: {created_time}  |  修改时间: {modified_time}"
@@ -45,10 +72,11 @@ def json_to_docx(json_path, output_path):
         time_run = time_para.add_run(time_info)
         set_font(time_run, '微软雅黑', 9)
         
-        # 3. 添加正文内容 - 使用宋体，11号
-        content = note.get('content', '')
-        if content:
-            # 华为备忘录通常有很多换行，这里逐行处理以保持段落感
+        # 3. 正文内容处理
+        if content_raw:
+            # 格式化：压缩冗余换行（多个换行替换为单个）
+            content = re.sub(r'\n+', '\n', content_raw).strip()
+            
             lines = content.split('\n')
             for line in lines:
                 if line.strip():
@@ -56,23 +84,23 @@ def json_to_docx(json_path, output_path):
                     content_run = content_para.add_run(line)
                     set_font(content_run, '宋体', 11)
                 else:
-                    # 空行处理
                     doc.add_paragraph()
         else:
             content_para = doc.add_paragraph()
             content_run = content_para.add_run("[无内容]")
             set_font(content_run, '宋体', 11, italic=True)
 
-        # 4. 在笔记之间添加分隔（除了最后一个）
+        # 4. 笔记之间的分割线
         if index < len(notes) - 1:
+            # 添加一个空行并带上下划线边框，形成一条明显的分割线
             sep_para = doc.add_paragraph()
-            sep_run = sep_para.add_run("-" * 50)
-            set_font(sep_run, 'Calibri', 10)
-            sep_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            add_horizontal_line(sep_para)
+            # 再补一个空行增加间距
+            doc.add_paragraph()
 
     # 保存文档
     doc.save(output_path)
-    print(f"转换完成！Word 文档已保存至: {output_path}")
+    print(f"转换完成！优化后的 Word 文档已保存至: {output_path}")
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
